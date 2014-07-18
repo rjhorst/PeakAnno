@@ -1,0 +1,870 @@
+Workflow Peak Assignment DNaseI
+========================================================
+Created by Robin J. Horst
+May 21, 2014
+
+The idea is to search in what region a DHS is located (CDS, exon, intron, UTR, promoter...)
+
+Input file:
+To search, I create the coordinates of the 'middle' of the peak by adding 'start' and 'end' coordinates and dividing by 2. This is done in Excel and the file containing this coordinates AND chromosome number are loaded into R. The input file has to be in the following format (.csv file) and can contain peak coordinates from all 5 chromosomes: chr, start, stop, middle
+
+Reference file:
+The file sv_gene_feature.data contains reference information of chromosome positions of gene features and was downloaded from "ftp://ftp.arabidopsis.org/home/tair/Maps/seqviewer_data/" and imported into Excel. Here, blank rows were deleted and in column 'orientation', "forward" was converted to "+", and "reverse" was converted to "-". This data frame was then exported as .csv and saved as "sv_gene_feature.csv".
+The file "TE_coordinates.csv" contains coordinates for transposable elements, miRNAs, ncRNAs, pseudogenes, snoRNAs and snRNAs. The data originated from the file "TAIR10_GFF3_genes_transposons.gff" that was downloaded from arabidopsis.org. Features redundant with features from "sv_gene_feature.csv" were deleted and the data structure was formatted to fit the one from "sv_gene_feature.csv" (all done in Excel, then exported as .csv).
+
+Load input file and reference file and subset for chromosome# and feature.
+```{r load and subset data}
+setwd("/Users/Robin/Documents/Stomata/projects/INTACT/DNaseI/14-03-03_Analysis-Kerry/14-05-06_Test-coordinates")
+features <- read.csv("sv_gene_feature.csv") # read coordinates file
+transp <- read.csv("TE_coordinates.csv") #read TE coordinates file
+diffs <- read.csv("StomaDHSdiffs_0.2_0.95_all.csv") # read file containing coordinates of interest. In this case all differential peaks in the comparision SPCH, FAMA, UBQ10
+
+#subset for each category and chromosome
+genesChr1 <- subset(features, features$chromosome == "chr1" & features$feature == "GENE")
+genesChr2 <- subset(features, features$chromosome == "chr2" & features$feature == "GENE")
+genesChr3 <- subset(features, features$chromosome == "chr3" & features$feature == "GENE")
+genesChr4 <- subset(features, features$chromosome == "chr4" & features$feature == "GENE")
+genesChr5 <- subset(features, features$chromosome == "chr5" & features$feature == "GENE")
+
+ORFsChr1 <- subset(features, features$chromosome == "chr1" & features$feature == "ORF")
+ORFsChr2 <- subset(features, features$chromosome == "chr2" & features$feature == "ORF")
+ORFsChr3 <- subset(features, features$chromosome == "chr3" & features$feature == "ORF")
+ORFsChr4 <- subset(features, features$chromosome == "chr4" & features$feature == "ORF")
+ORFsChr5 <- subset(features, features$chromosome == "chr5" & features$feature == "ORF")
+
+exonsChr1 <- subset(features, features$chromosome == "chr1" & features$feature == "exon")
+exonsChr2 <- subset(features, features$chromosome == "chr2" & features$feature == "exon")
+exonsChr3 <- subset(features, features$chromosome == "chr3" & features$feature == "exon")
+exonsChr4 <- subset(features, features$chromosome == "chr4" & features$feature == "exon")
+exonsChr5 <- subset(features, features$chromosome == "chr5" & features$feature == "exon")
+
+transpChr1 <- subset(transp, transp$chromosome == "chr1" & transp$feature == "transposable_element")
+transpChr2 <- subset(transp, transp$chromosome == "chr2" & transp$feature == "transposable_element")
+transpChr3 <- subset(transp, transp$chromosome == "chr3" & transp$feature == "transposable_element")
+transpChr4 <- subset(transp, transp$chromosome == "chr4" & transp$feature == "transposable_element")
+transpChr5 <- subset(transp, transp$chromosome == "chr5" & transp$feature == "transposable_element")
+
+#all chromosomes, just category
+genes <- subset(features, features$feature == "GENE")
+exons <- subset(features, features$feature == "exon")
+ORFs <- subset(features, features$feature == "ORF")
+
+#subset input file (DHS coordinates) by chromosome number
+DHS_chr1 <- subset(diffs, diffs$chr == "chr1")
+DHS_chr2 <- subset(diffs, diffs$chr == "chr2")
+DHS_chr3 <- subset(diffs, diffs$chr == "chr3")
+DHS_chr4 <- subset(diffs, diffs$chr == "chr4")
+DHS_chr5 <- subset(diffs, diffs$chr == "chr5")
+```
+
+Let's find DHSs that are in 'genes', be it CDS, intron, exon or whatever.
+```{r DHSs in genes}
+#Chromosome1
+DHSgenesChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  DHSsubset <- subset(genesChr1, DHS_chr1[i,4] > genesChr1$start & DHS_chr1[i,4] < genesChr1$stop)
+	DHSgenesChr1[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr1 <- cbind(DHS_chr1, DHSgenesChr1)
+
+#Chromosome2
+DHSgenesChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  DHSsubset <- subset(genesChr2, DHS_chr2[i,4] > genesChr2$start & DHS_chr2[i,4] < genesChr2$stop)
+  DHSgenesChr2[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr2 <- cbind(DHS_chr2, DHSgenesChr2)
+
+#Chromosome3
+DHSgenesChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  DHSsubset <- subset(genesChr3, DHS_chr3[i,4] > genesChr3$start & DHS_chr3[i,4] < genesChr3$stop)
+  DHSgenesChr3[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr3 <- cbind(DHS_chr3, DHSgenesChr3)
+
+#Chromosome4
+DHSgenesChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  DHSsubset <- subset(genesChr4, DHS_chr4[i,4] > genesChr4$start & DHS_chr4[i,4] < genesChr4$stop)
+  DHSgenesChr4[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr4 <- cbind(DHS_chr4, DHSgenesChr4)
+
+#Chromosome5
+DHSgenesChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  DHSsubset <- subset(genesChr5, DHS_chr5[i,4] > genesChr5$start & DHS_chr5[i,4] < genesChr5$stop)
+  DHSgenesChr5[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr5 <- cbind(DHS_chr5, DHSgenesChr5)
+```
+
+Now, lets find which one of the DHSs are in exons. This may seem redundant to 'genes', but if it is in an exon, it is in the CDS of this gene. If not, it is either in an intron or a UTR. We will figure this out later, for now, let's just annotate exon DHSs.
+```{r DHSs in exons}
+#Chromosome1
+DHSexonsChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  DHSsubset <- subset(exonsChr1, DHS_chr1[i,4] > exonsChr1$start & DHS_chr1[i,4] < exonsChr1$stop)
+	DHSexonsChr1[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr1 <- cbind(DHS_chr1, DHSexonsChr1)
+
+#Chromosome2
+DHSexonsChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  DHSsubset <- subset(exonsChr2, DHS_chr2[i,4] > exonsChr2$start & DHS_chr2[i,4] < exonsChr2$stop)
+  DHSexonsChr2[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr2 <- cbind(DHS_chr2, DHSexonsChr2)
+
+#Chromosome3
+DHSexonsChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  DHSsubset <- subset(exonsChr3, DHS_chr3[i,4] > exonsChr3$start & DHS_chr3[i,4] < exonsChr3$stop)
+  DHSexonsChr3[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr3 <- cbind(DHS_chr3, DHSexonsChr3)
+
+#Chromosome4
+DHSexonsChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  DHSsubset <- subset(exonsChr4, DHS_chr4[i,4] > exonsChr4$start & DHS_chr4[i,4] < exonsChr4$stop)
+  DHSexonsChr4[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr4 <- cbind(DHS_chr4, DHSexonsChr4)
+
+#Chromosome5
+DHSexonsChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  DHSsubset <- subset(exonsChr5, DHS_chr5[i,4] > exonsChr5$start & DHS_chr5[i,4] < exonsChr5$stop)
+  DHSexonsChr5[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr5 <- cbind(DHS_chr5, DHSexonsChr5)
+```
+
+And the same thing for ORFs (genomic sequence minus UTRs, but including introns):
+```{r DHSs in ORFs}
+#Chromosome1
+DHSorfsChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  DHSsubset <- subset(ORFsChr1, DHS_chr1[i,4] > ORFsChr1$start & DHS_chr1[i,4] < ORFsChr1$stop)
+  DHSorfsChr1[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr1 <- cbind(DHS_chr1, DHSorfsChr1)
+
+#Chromosome2
+DHSorfsChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  DHSsubset <- subset(ORFsChr2, DHS_chr2[i,4] > ORFsChr2$start & DHS_chr2[i,4] < ORFsChr2$stop)
+  DHSorfsChr2[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr2 <- cbind(DHS_chr2, DHSorfsChr2)
+
+#Chromosome3
+DHSorfsChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  DHSsubset <- subset(ORFsChr3, DHS_chr3[i,4] > ORFsChr3$start & DHS_chr3[i,4] < ORFsChr3$stop)
+  DHSorfsChr3[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr3 <- cbind(DHS_chr3, DHSorfsChr3)
+
+#Chromosome4
+DHSorfsChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  DHSsubset <- subset(ORFsChr4, DHS_chr4[i,4] > ORFsChr4$start & DHS_chr4[i,4] < ORFsChr4$stop)
+  DHSorfsChr4[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr4 <- cbind(DHS_chr4, DHSorfsChr4)
+
+#Chromosome5
+DHSorfsChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  DHSsubset <- subset(ORFsChr5, DHS_chr5[i,4] > ORFsChr5$start & DHS_chr5[i,4] < ORFsChr5$stop)
+  DHSorfsChr5[i] <- as.character(DHSsubset[1,2])
+}
+DHS_chr5 <- cbind(DHS_chr5, DHSorfsChr5)
+```
+
+Now, on to find DHSs in introns. If the DHS is in an ORF, but not in an exon, it has to be in an intron.
+```{r DHSs in introns}
+#Chromosome1
+DHSintronsChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  if(!is.na(DHS_chr1[i,7]) & is.na(DHS_chr1[i,6])) {
+		DHSsubset <- DHS_chr1[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHSintronsChr1[i] <- as.character(DHSsubset)
+}
+DHS_chr1 <- cbind(DHS_chr1, DHSintronsChr1)
+
+#Chromosome2
+DHSintronsChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  if(!is.na(DHS_chr2[i,7]) & is.na(DHS_chr2[i,6])) {
+  	DHSsubset <- DHS_chr2[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHSintronsChr2[i] <- as.character(DHSsubset)
+}
+DHS_chr2 <- cbind(DHS_chr2, DHSintronsChr2)
+
+#Chromosome3
+DHSintronsChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  if(!is.na(DHS_chr3[i,7]) & is.na(DHS_chr3[i,6])) {
+  	DHSsubset <- DHS_chr3[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHSintronsChr3[i] <- as.character(DHSsubset)
+}
+DHS_chr3 <- cbind(DHS_chr3, DHSintronsChr3)
+
+#Chromosome4
+DHSintronsChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  if(!is.na(DHS_chr4[i,7]) & is.na(DHS_chr4[i,6])) {
+    DHSsubset <- DHS_chr4[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHSintronsChr4[i] <- as.character(DHSsubset)
+}
+DHS_chr4 <- cbind(DHS_chr4, DHSintronsChr4)
+
+#Chromosome5
+DHSintronsChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  if(!is.na(DHS_chr5[i,7]) & is.na(DHS_chr5[i,6])) {
+    DHSsubset <- DHS_chr5[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHSintronsChr5[i] <- as.character(DHSsubset)
+}
+DHS_chr5 <- cbind(DHS_chr5, DHSintronsChr5)
+```
+
+Same thing to find DHSs in the CDS of genes (aka if peak is in ORF AND exon).
+```{r DHSs in CDS}
+#Chromosome1
+DHScdsChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  if(!is.na(DHS_chr1[i,7]) & !is.na(DHS_chr1[i,6])) {
+  	DHSsubset <- DHS_chr1[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHScdsChr1[i] <- as.character(DHSsubset)
+}
+DHS_chr1 <- cbind(DHS_chr1, DHScdsChr1)
+
+#Chromosome2
+DHScdsChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  if(!is.na(DHS_chr2[i,7]) & !is.na(DHS_chr2[i,6])) {
+    DHSsubset <- DHS_chr2[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHScdsChr2[i] <- as.character(DHSsubset)
+}
+DHS_chr2 <- cbind(DHS_chr2, DHScdsChr2)
+
+#Chromosome3
+DHScdsChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  if(!is.na(DHS_chr3[i,7]) & !is.na(DHS_chr3[i,6])) {
+    DHSsubset <- DHS_chr3[i,7]
+		}else{
+			DHSsubset <- NA
+		}
+	DHScdsChr3[i] <- as.character(DHSsubset)
+}
+DHS_chr3 <- cbind(DHS_chr3, DHScdsChr3)
+
+#Chromosome4
+DHScdsChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  if(!is.na(DHS_chr4[i,7]) & !is.na(DHS_chr4[i,6])) {
+    DHSsubset <- DHS_chr4[i,7]
+  	}else{
+			DHSsubset <- NA
+		}
+	DHScdsChr4[i] <- as.character(DHSsubset)
+}
+DHS_chr4 <- cbind(DHS_chr4, DHScdsChr4)
+
+#Chromosome5
+DHScdsChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  if(!is.na(DHS_chr5[i,7]) & !is.na(DHS_chr5[i,6])) {
+    DHSsubset <- DHS_chr5[i,7]
+    }else{
+			DHSsubset <- NA
+		}
+	DHScdsChr5[i] <- as.character(DHSsubset)
+}
+DHS_chr5 <- cbind(DHS_chr5, DHScdsChr5)
+```
+
+Now, let's find DHSs in 5' UTRs. The DHS has to be in a gene but < than start of ORF (if on + strand), or > than ORF if on "-".
+```{r DHSs in 5UTRs}
+# this is a bit tricky, since I need to consider orientation of the genes (+ or - strand).
+
+#Chromosome1
+DHS5utrChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  gene <- !is.na(DHS_chr1[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr1, DHS_chr1[i,5] == as.character(ORFsChr1$gene.name)) #subset to find row with given gene name
+	smaller <- DHS_chr1[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+	larger <- DHS_chr1[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr1[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr1[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS5utrChr1[i] <- as.character(DHSsubset)
+}
+DHS_chr1 <- cbind(DHS_chr1, DHS5utrChr1)
+
+#Chromosome2
+DHS5utrChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  gene <- !is.na(DHS_chr2[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr2, DHS_chr2[i,5] == as.character(ORFsChr2$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr2[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+	larger <- DHS_chr2[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr2[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr2[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS5utrChr2[i] <- as.character(DHSsubset)
+}
+DHS_chr2 <- cbind(DHS_chr2, DHS5utrChr2)
+
+#Chromosome3
+DHS5utrChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  gene <- !is.na(DHS_chr3[i,5]) #is this DHS in a gene?
+	ss <- subset(ORFsChr3, DHS_chr3[i,5] == as.character(ORFsChr3$gene.name)) #subset to find row with given gene name
+	smaller <- DHS_chr3[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+	larger <- DHS_chr3[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr3[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr3[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS5utrChr3[i] <- as.character(DHSsubset)
+}
+DHS_chr3 <- cbind(DHS_chr3, DHS5utrChr3)
+
+#Chromosome4
+DHS5utrChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  gene <- !is.na(DHS_chr4[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr4, DHS_chr4[i,5] == as.character(ORFsChr4$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr4[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+  larger <- DHS_chr4[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr4[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr4[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS5utrChr4[i] <- as.character(DHSsubset)
+}
+DHS_chr4 <- cbind(DHS_chr4, DHS5utrChr4)
+
+#Chromosome5
+DHS5utrChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  gene <- !is.na(DHS_chr5[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr5, DHS_chr5[i,5] == as.character(ORFsChr4$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr5[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+  larger <- DHS_chr5[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "+")) {
+  	DHSsubset <- DHS_chr5[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr5[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS5utrChr5[i] <- as.character(DHSsubset)
+}
+DHS_chr5 <- cbind(DHS_chr5, DHS5utrChr5)
+```
+
+Slight modification of this will give us DHSs in the 3' UTR.
+```{r DHSs in 3 UTR}
+#Chromosome1
+DHS3utrChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  gene <- !is.na(DHS_chr1[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr1, DHS_chr1[i,5] == as.character(ORFsChr1$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr1[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+	larger <- DHS_chr1[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr1[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr1[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS3utrChr1[i] <- as.character(DHSsubset)
+}
+DHS_chr1 <- cbind(DHS_chr1, DHS3utrChr1)
+
+#Chromosome2
+DHS3utrChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  gene <- !is.na(DHS_chr2[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr2, DHS_chr2[i,5] == as.character(ORFsChr2$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr2[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+	larger <- DHS_chr2[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr2[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr2[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS3utrChr2[i] <- as.character(DHSsubset)
+}
+DHS_chr2 <- cbind(DHS_chr2, DHS3utrChr2)
+
+#Chromosome3
+DHS3utrChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  gene <- !is.na(DHS_chr3[i,5]) #is this DHS in a gene?
+	ss <- subset(ORFsChr3, DHS_chr3[i,5] == as.character(ORFsChr3$gene.name)) #subset to find row with given gene name
+	smaller <- DHS_chr3[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+	larger <- DHS_chr3[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr3[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr3[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS3utrChr3[i] <- as.character(DHSsubset)
+}
+DHS_chr3 <- cbind(DHS_chr3, DHS3utrChr3)
+
+#Chromosome4
+DHS3utrChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  gene <- !is.na(DHS_chr4[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr4, DHS_chr4[i,5] == as.character(ORFsChr4$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr4[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+  larger <- DHS_chr4[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "-")) {
+		DHSsubset <- DHS_chr4[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr4[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS3utrChr4[i] <- as.character(DHSsubset)
+}
+DHS_chr4 <- cbind(DHS_chr4, DHS3utrChr4)
+
+#Chromosome5
+DHS3utrChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  gene <- !is.na(DHS_chr5[i,5]) #is this DHS in a gene?
+  ss <- subset(ORFsChr5, DHS_chr5[i,5] == as.character(ORFsChr4$gene.name)) #subset to find row with given gene name
+  smaller <- DHS_chr5[i,4] < ss[1,4] #is the DHS smaller than the start site of the ORF
+  larger <- DHS_chr5[i,4] > ss[1,5] #is the DHS larger than the stop site of the ORF
+  if(gene & isTRUE(smaller) & isTRUE(ss[1,7] == "-")) {
+  	DHSsubset <- DHS_chr5[i,5]
+	} else if(gene & isTRUE(larger) & isTRUE(ss[1,7] == "+")) {
+		DHSsubset <- DHS_chr5[i,5]
+	}else{
+		DHSsubset <- NA
+		}
+	DHS3utrChr5[i] <- as.character(DHSsubset)
+}
+DHS_chr5 <- cbind(DHS_chr5, DHS3utrChr5)
+```
+
+
+Find DHSs in transposable elements (TE). 
+```{r DHSs in transposable elements}
+#Chromosome1
+DHSteChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  DHSsubset <- subset(transpChr1, DHS_chr1[i,4] > transpChr1$start & DHS_chr1[i,4] < transpChr1$stop)
+  DHSteChr1[i] <- as.character(DHSsubset[1,2])
+}
+DHSteChr1 <- substr(DHSteChr1, 4, 1+13-1) #isolate substring that contains only the actuel AGI of the TE
+DHS_chr1 <- cbind(DHS_chr1, DHSteChr1)
+
+#Chromosome2
+DHSteChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  DHSsubset <- subset(transpChr2, DHS_chr2[i,4] > transpChr2$start & DHS_chr2[i,4] < transpChr2$stop)
+  DHSteChr2[i] <- as.character(DHSsubset[1,2])
+}
+DHSteChr2 <- substr(DHSteChr2, 4, 1+13-1) #isolate substring that contains only the actuel AGI of the TE
+DHS_chr2 <- cbind(DHS_chr2, DHSteChr2)
+
+#Chromosome3
+DHSteChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  DHSsubset <- subset(transpChr3, DHS_chr3[i,4] > transpChr3$start & DHS_chr3[i,4] < transpChr3$stop)
+  DHSteChr3[i] <- as.character(DHSsubset[1,2])
+}
+DHSteChr3 <- substr(DHSteChr3, 4, 1+13-1) #isolate substring that contains only the actuel AGI of the TE
+DHS_chr3 <- cbind(DHS_chr3, DHSteChr3)
+
+#Chromosome4
+DHSteChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  DHSsubset <- subset(transpChr4, DHS_chr4[i,4] > transpChr4$start & DHS_chr4[i,4] < transpChr4$stop)
+  DHSteChr4[i] <- as.character(DHSsubset[1,2])
+}
+DHSteChr4 <- substr(DHSteChr4, 4, 1+13-1) #isolate substring that contains only the actuel AGI of the TE
+DHS_chr4 <- cbind(DHS_chr4, DHSteChr4)
+
+#Chromosome5
+DHSteChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  DHSsubset <- subset(transpChr5, DHS_chr5[i,4] > transpChr5$start & DHS_chr5[i,4] < transpChr5$stop)
+  DHSteChr5[i] <- as.character(DHSsubset[1,2])
+}
+DHSteChr5 <- substr(DHSteChr5, 4, 1+13-1) #isolate substring that contains only the actuel AGI of the TE
+DHS_chr5 <- cbind(DHS_chr5, DHSteChr5)
+```
+
+
+Let's find peaks in promoter regions. This means peaks that are NOT in genes or TEs (!= CDS, introns, UTRs) and up to 3 kb upstream of a gene start. Consider both strands!
+```{r DHSs in promoter regions}
+#Chromosome1
+DHSproChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  gene <- is.na(DHS_chr1[i,5]) #is this DHS in a gene? If no, return TRUE. In the end, if DHS is in gene, we don't wanna check anymore!
+  tE <- is.na(DHS_chr1[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  ssF <- subset(genesChr1, DHS_chr1[i,4] < genesChr1$start & DHS_chr1[i,4] > genesChr1$start - 3000 & genesChr1$orientation == "+") #subset of DHSs where peak i is up to 3kb 5' of gene start and on + strand
+	ssR <- subset(genesChr1, DHS_chr1[i,4] > genesChr1$stop & DHS_chr1[i,4] < genesChr1$stop + 3000 & genesChr1$orientation == "-") #subset of DHSs where peak i is up to 3kb 5' of gene start and on - strand
+  if(gene & tE & !is.na(ssF[1,2]) & !is.na(ssR[1,2])) {
+		DHSsubset <- paste(ssF[1,2], ssR[1,2], sep = ", ")
+	} else if(gene & tE & !is.na(ssR[1,2])) {
+		DHSsubset <- ssR[1,2]
+	} else if(gene & tE & !is.na(ssF[1,2])){
+		DHSsubset <- ssF[1,2]
+	}else{
+		DHSsubset <- NA
+		}
+	DHSproChr1[i] <- as.character(DHSsubset)
+}
+
+DHS_chr1 <- cbind(DHS_chr1, DHSproChr1)
+
+#Chromosome2
+DHSproChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  gene <- is.na(DHS_chr2[i,5]) #is this DHS in a gene? If no, return TRUE. In the end, if DHS is in gene, we don't wanna check anymore!
+   tE <- is.na(DHS_chr2[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  ssF <- subset(genesChr2, DHS_chr2[i,4] < genesChr2$start & DHS_chr2[i,4] > genesChr2$start - 3000 & genesChr2$orientation == "+") #subset of DHSs where peak i is up to 3kb 5' of gene start and on + strand
+	ssR <- subset(genesChr2, DHS_chr2[i,4] > genesChr2$stop & DHS_chr2[i,4] < genesChr2$stop + 3000 & genesChr2$orientation == "-") #subset of DHSs where peak i is up to 3kb 5' of gene start and on - strand
+  if(gene & tE & !is.na(ssF[1,2]) & !is.na(ssR[1,2])) {
+  	DHSsubset <- paste(ssF[1,2], ssR[1,2], sep = ", ")
+	} else if(gene & tE & !is.na(ssR[1,2])) {
+		DHSsubset <- ssR[1,2]
+	} else if(gene & tE & !is.na(ssF[1,2])){
+		DHSsubset <- ssF[1,2]
+	}else{
+		DHSsubset <- NA
+		}
+	DHSproChr2[i] <- as.character(DHSsubset)
+}
+
+DHS_chr2 <- cbind(DHS_chr2, DHSproChr2)
+
+#Chromosome3
+DHSproChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  gene <- is.na(DHS_chr3[i,5]) #is this DHS in a gene? If no, return TRUE. In the end, if DHS is in gene, we don't wanna check anymore!
+	 tE <- is.na(DHS_chr3[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  ssF <- subset(genesChr3, DHS_chr3[i,4] < genesChr3$start & DHS_chr3[i,4] > genesChr3$start - 3000 & genesChr3$orientation == "+") #subset of DHSs where peak i is up to 3kb 5' of gene start and on + strand
+	ssR <- subset(genesChr3, DHS_chr3[i,4] > genesChr3$stop & DHS_chr3[i,4] < genesChr3$stop + 3000 & genesChr3$orientation == "-") #subset of DHSs where peak i is up to 3kb 5' of gene start and on - strand
+ if(gene & tE & !is.na(ssF[1,2]) & !is.na(ssR[1,2])) {
+  	DHSsubset <- paste(ssF[1,2], ssR[1,2], sep = ", ")
+	} else if(gene & tE & !is.na(ssR[1,2])) {
+		DHSsubset <- ssR[1,2]
+	} else if(gene & tE & !is.na(ssF[1,2])){
+		DHSsubset <- ssF[1,2]
+	}else{
+		DHSsubset <- NA
+		}
+	DHSproChr3[i] <- as.character(DHSsubset)
+}
+
+DHS_chr3 <- cbind(DHS_chr3, DHSproChr3)
+
+#Chromosome4
+DHSproChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  gene <- is.na(DHS_chr4[i,5]) #is this DHS in a gene? If no, return TRUE. In the end, if DHS is in gene, we don't wanna check anymore!
+   tE <- is.na(DHS_chr4[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  ssF <- subset(genesChr4, DHS_chr4[i,4] < genesChr4$start & DHS_chr4[i,4] > genesChr4$start - 3000 & genesChr4$orientation == "+") #subset of DHSs where peak i is up to 3kb 5' of gene start and on + strand
+  ssR <- subset(genesChr4, DHS_chr4[i,4] > genesChr4$stop & DHS_chr4[i,4] < genesChr4$stop + 3000 & genesChr4$orientation == "-") #subset of DHSs where peak i is up to 3kb 5' of gene start and on - strand
+ if(gene & tE & !is.na(ssF[1,2]) & !is.na(ssR[1,2])) {
+  	DHSsubset <- paste(ssF[1,2], ssR[1,2], sep = ", ")
+	} else if(gene & tE & !is.na(ssR[1,2])) {
+		DHSsubset <- ssR[1,2]
+	} else if(gene & tE & !is.na(ssF[1,2])){
+		DHSsubset <- ssF[1,2]
+	}else{
+		DHSsubset <- NA
+		}
+	DHSproChr4[i] <- as.character(DHSsubset)
+}
+
+DHS_chr4 <- cbind(DHS_chr4, DHSproChr4)
+
+#Chromosome5
+DHSproChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  gene <- is.na(DHS_chr5[i,5]) #is this DHS in a gene? If no, return TRUE. In the end, if DHS is in gene, we don't wanna check anymore!
+   tE <- is.na(DHS_chr5[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  ssF <- subset(genesChr5, DHS_chr5[i,4] < genesChr5$start & DHS_chr5[i,4] > genesChr5$start - 3000 & genesChr5$orientation == "+") #subset of DHSs where peak i is up to 3kb 5' of gene start and on + strand
+  ssR <- subset(genesChr5, DHS_chr5[i,4] > genesChr5$stop & DHS_chr5[i,4] < genesChr5$stop + 3000 & genesChr5$orientation == "-") #subset of DHSs where peak i is up to 3kb 5' of gene start and on - strand
+  if(gene & tE & !is.na(ssF[1,2]) & !is.na(ssR[1,2])) {
+  	DHSsubset <- paste(ssF[1,2], ssR[1,2], sep = ", ")
+	} else if(gene & tE & !is.na(ssR[1,2])) {
+		DHSsubset <- ssR[1,2]
+	} else if(gene & tE & !is.na(ssF[1,2])){
+		DHSsubset <- ssF[1,2]
+	}else{
+		DHSsubset <- NA
+		}
+	DHSproChr5[i] <- as.character(DHSsubset)
+}
+
+DHS_chr5 <- cbind(DHS_chr5, DHSproChr5)
+```
+
+
+Finally, lets define DHSs neither in a gene, nor in a promoter to be in intergenic regions ("IG"):
+NEED TO MODIFY THIS TO EXCLUDE TEs, i.e. neither in gene, nor in TE, nor in promoter; MAY HAVE TO CHECK COLUMN INDICES
+
+```{r DHSs in intergenic regions}
+#Chromosome1
+DHSigChr1 <- rep(NA, length(DHS_chr1[,1]))
+for(i in 1:length(DHS_chr1[,1])) {
+  gene <- is.na(DHS_chr1[i,5])
+  tE <- is.na(DHS_chr1[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  promoter <- is.na(DHS_chr1[i,13])
+	if(gene & tE & promoter){
+		DHSsubset <- "IG"
+	}else{
+		DHSsubset <- NA
+		}
+	DHSigChr1[i] <- as.character(DHSsubset)
+}
+DHS_chr1 <- cbind(DHS_chr1, DHSigChr1)
+
+#Chromosome2
+DHSigChr2 <- rep(NA, length(DHS_chr2[,1]))
+for(i in 1:length(DHS_chr2[,1])) {
+  gene <- is.na(DHS_chr2[i,5])
+  tE <- is.na(DHS_chr2[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+	promoter <- is.na(DHS_chr2[i,13])
+	if(gene & tE & promoter){
+		DHSsubset <- "IG"
+	}else{
+		DHSsubset <- NA
+		}
+	DHSigChr2[i] <- as.character(DHSsubset)
+}
+DHS_chr2 <- cbind(DHS_chr2, DHSigChr2)
+
+#Chromosome3
+DHSigChr3 <- rep(NA, length(DHS_chr3[,1]))
+for(i in 1:length(DHS_chr3[,1])) {
+  gene <- is.na(DHS_chr3[i,5])
+  tE <- is.na(DHS_chr3[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  promoter <- is.na(DHS_chr3[i,13])
+	if(gene & tE & promoter){
+		DHSsubset <- "IG"
+	}else{
+		DHSsubset <- NA
+		}
+	DHSigChr3[i] <- as.character(DHSsubset)
+}
+DHS_chr3 <- cbind(DHS_chr3, DHSigChr3)
+
+#Chromosome4
+DHSigChr4 <- rep(NA, length(DHS_chr4[,1]))
+for(i in 1:length(DHS_chr4[,1])) {
+  gene <- is.na(DHS_chr4[i,5])
+  tE <- is.na(DHS_chr4[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  promoter <- is.na(DHS_chr4[i,13])
+  if(gene & tE & promoter){
+		DHSsubset <- "IG"
+	}else{
+		DHSsubset <- NA
+		}
+	DHSigChr4[i] <- as.character(DHSsubset)
+}
+DHS_chr4 <- cbind(DHS_chr4, DHSigChr4)
+
+#Chromosome5
+DHSigChr5 <- rep(NA, length(DHS_chr5[,1]))
+for(i in 1:length(DHS_chr5[,1])) {
+  gene <- is.na(DHS_chr5[i,5])
+  tE <- is.na(DHS_chr5[i,12]) ##is this DHS in a TE? If no, return TRUE. In the end, if DHS is in a TE, we don't wanna check anymore!
+  promoter <- is.na(DHS_chr5[i,13])
+  if(gene & tE & promoter){
+  	DHSsubset <- "IG"
+	}else{
+		DHSsubset <- NA
+		}
+	DHSigChr5[i] <- as.character(DHSsubset)
+}
+DHS_chr5 <- cbind(DHS_chr5, DHSigChr5)
+```
+
+
+Combine data frames from single chromosome to one single data frame and write to a .csv:
+```{r}
+# concatenate all 5 output files into one
+names(DHS_chr1)[5:14] <- c("Gene", "Exon", "ORF", "Intron", "CDS", "5'UTR", "3'UTR", "TE", "Promoter", "IG")
+names(DHS_chr2)[5:14] <- c("Gene", "Exon", "ORF", "Intron", "CDS", "5'UTR", "3'UTR", "TE", "Promoter", "IG")
+names(DHS_chr3)[5:14] <- c("Gene", "Exon", "ORF", "Intron", "CDS", "5'UTR", "3'UTR", "TE", "Promoter", "IG")
+names(DHS_chr4)[5:14] <- c("Gene", "Exon", "ORF", "Intron", "CDS", "5'UTR", "3'UTR", "TE", "Promoter", "IG")
+names(DHS_chr5)[5:14] <- c("Gene", "Exon", "ORF", "Intron", "CDS", "5'UTR", "3'UTR", "TE", "Promoter", "IG")
+DHS_all <- rbind(DHS_chr1, DHS_chr2, DHS_chr3, DHS_chr4, DHS_chr5)
+
+#write to .csv as is
+write.csv(DHS_all, file="StomaDHSdiffs_0.2_0.95_DHS_all_TE.csv")
+```
+
+Now cleanup and export of the final table as .csv: DOUBLE CHECK COLUMN INDICES!!! THEY HAVE CHANGED!!
+```{r cleanup}
+#convert columns to character
+for(i in 5:14) {
+  DHS_all[,i] <- as.character(DHS_all[,i])
+}
+
+#copy AGI from Promoter to Gene
+for(i in 1:length(DHS_all[,1])) {
+  if(is.na(DHS_all[i,5])) {
+  	DHS_all[i,5] <- DHS_all[i,13]
+	}
+}
+
+#copy AGI from TE to Gene
+for(i in 1:length(DHS_all[,1])) {
+  if(is.na(DHS_all[i,5])) {
+    DHS_all[i,5] <- DHS_all[i,12]
+	}
+}
+
+#convert AGI in column Promoter to "promoter" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,13])) {
+		DHS_all[i,13] <- "promoter"
+	}else{
+		DHS_all[i,13] <- ""
+	}
+}
+
+#convert AGI in column Intron to "intron" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,8])) {
+		DHS_all[i,8] <- "intron"
+	}else{
+		DHS_all[i,8] <- ""
+	}
+}
+
+#convert AGI in column CDS to "CDS" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,9])) {
+		DHS_all[i,9] <- "CDS"
+	}else{
+		DHS_all[i,9] <- ""
+	}
+}
+
+#convert AGI in column 5'UTR to "5'UTR" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,10])) {
+		DHS_all[i,10] <- "5'UTR"
+	}else{
+		DHS_all[i,10] <- ""
+	}
+}
+
+#convert AGI in column 3'UTR to "3'UTR" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,11])) {
+  	DHS_all[i,11] <- "3'UTR"
+	}else{
+		DHS_all[i,11] <- ""
+	}
+}
+
+#convert AGI in column IG to "intergenic" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,14])) {
+    DHS_all[i,14] <- "intergenic"
+	}else{
+		DHS_all[i,14] <- ""
+	}
+}
+
+#convert AGI in column TE to "TE" and NAs to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(!is.na(DHS_all[i,12])) {
+    DHS_all[i,12] <- "TE"
+  }else{
+		DHS_all[i,12] <- ""
+	}
+}
+
+#convert NAs in column Gene to blank
+for(i in 1:length(DHS_all[,1])) {
+  if(is.na(DHS_all[i,5])) {
+    DHS_all[i,5] <- ""
+  }
+}
+ 
+#remove columns 4, 6, and 7 (middle, Exon, ORF)
+DHS_all <- DHS_all[,c(1:3,5,8:14)]
+
+#concatenate columns 5:11 to get one cell containing all 'description' of where DHS is located
+Elements <- rep(NA, length(DHS_all[,1]))
+for(i in 1:length(DHS_all[,1])) {
+  Elements[i] <- paste(DHS_all[i, 5], DHS_all[i, 6], DHS_all[i, 7], DHS_all[i, 8], DHS_all[i, 9], DHS_all[i, 10], DHS_all[i,11])
+}
+DHS_all <- cbind(DHS_all, Elements)
+
+#remove blanks
+DHS_all_blank<-as.data.frame(apply(DHS_all,2,function(x)gsub(" ", "",x)))
+
+#write to .csv
+write.csv(DHS_all, file="StomaDHSdiffs_0.2_0.95_DHS_all_clean_TE.csv")
+write.csv(DHS_all_blank, file="StomaDHSdiffs_0.2_0.95_DHS_all_clean_noblanks_TE.csv")
+```
+
+Now just some statistics to see how many DHSs are in what genomic region. Nothing fancy, just numbers in tables. This may come in hady to easily define how many of the DHSs are in which region.
+```{r}
+print(summary(DHS_all))
+```
+
